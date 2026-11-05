@@ -69,3 +69,21 @@ def test_unknown_alias_left_alone():
     engine = make_engine(protect_list=("Jane Doe",))
     engine.sanitize_request("Jane Doe called.")
     assert engine.restore_response("Who is <Person 99>?") == "Who is <Person 99>?"
+
+
+def test_stable_alias_across_five_turns():
+    engine = make_engine(protect_list=("Jane Doe",))
+    first = engine.sanitize_request("Jane Doe has SSN 212-88-3456.")
+    alias_name = next(a for a in first.mapping if a.startswith("<Protected"))
+    alias_ssn = next(a for a in first.mapping if a.startswith("<SSN"))
+    for turn in range(2, 6):
+        again = engine.sanitize_request(f"Turn {turn}: Jane Doe, SSN 212-88-3456.")
+        assert alias_name in again.sanitized_text
+        assert alias_ssn in again.sanitized_text
+
+
+def test_builtin_skip_terms_reduce_ner_noise():
+    engine = make_engine()
+    result = engine.sanitize_request("SSN: 212-88-3456")
+    assert result.sanitized_text.startswith("SSN: ")  # the word survives
+    assert "212-88-3456" not in result.sanitized_text  # the value does not

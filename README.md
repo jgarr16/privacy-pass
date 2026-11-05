@@ -6,7 +6,7 @@
 **First release:** Hermes Agent plugin for the Nous Research Plugin Hackathon  
 **Hackathon deadline:** November 11, 2026, 5:00 p.m. EST (November 12, 2026, 7:00 a.m. KST) — deadline from hackathon announcement; confirm with organizers before submission  
 **Target platform:** macOS first; portable Python core  
-**License target:** MIT, subject to a dependency and source-code license review
+**License target:** MIT — dependency license review done November 6, 2026: `spacy`, `presidio-analyzer`, and the `en_core_web_sm` model package are all MIT (verified in the installed wheel metadata)
 
 ## 1. Product description
 
@@ -142,7 +142,7 @@ Verified against installed Hermes v0.22.7 and the working tree:
 - **Auxiliary calls confirmed unsanitizable:** `agent/auxiliary_hooks.py` states `pre_auxiliary_call`/`post_auxiliary_call` are observer-only (returns ignored, fail-open) — titling, compression, vision, and approval calls bypass sanitization by construction and carry raw user text (confirmed in the live capture). The plugin counts them via `pre_auxiliary_call` and `/privacy` reports the number; recommended user mitigation: `auxiliary.title_generation.enabled: false`. This is a hard product boundary to document, not a bug we can fix from a plugin.
 - **`transform_llm_output` contract verified from installed source** (`agent/turn_finalizer.py`): payload keys `response_text, session_id, model, platform, turn_id`; the hook returns a plain replacement string (first non-empty wins). With `hold_stream=True`, a failed callback withholds the reply — display-side failure cannot leak pre-restore text. Hermes persists the *restored* text and replays it next turn; the middleware re-sanitizes that history with the same registry, keeping the round trip alias-stable.
 - **Hermes writes full request-body dumps to local logs on API errors** (`dump_api_request_debug`: preflight, non-retryable client error, max retries). Dumps observe the payload *after* middleware mutation and pass through Hermes' own secret redaction — so they contain aliases, not raw values. Document in KNOWN_LIMITS; no code change needed.
-- Pending verification: spaCy *model* package license; user-facing protect-list configuration.
+- **Clean-checkout rehearsal passed (November 6):** a fresh `git clone` of this repo passes `hermes plugins validate --install-deps`, installs via `hermes plugins install <git-url>`, enables, loads (`doctor`, 4 hooks), and the offline demo gate (`scripts/demo_gate.sh`) passes against the clone — twice consecutively, stale-gateway-safe. This is the path catalog CI and reviewers will take.
 
 ## 5. Core engine: reuse existing code
 

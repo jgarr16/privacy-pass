@@ -32,6 +32,11 @@ _ALIAS_RE = re.compile(r"<([A-Za-z]+) (\d+)>")
 # definitions): protect list + structured recognizers, no open-ended NER.
 _STRUCTURED_TIERS = frozenset({TIER_PROTECT_LIST, TIER_STRUCTURED})
 
+# Built-in skip terms: tokens that NER reliably misreads as organizations
+# in conversation text but that are never private themselves. The user's
+# skip_list is additive to these.
+DEFAULT_SKIP_TERMS = ("SSN",)
+
 
 class SessionEngine:
     """One session's alias state. Safe for concurrent turns."""
@@ -60,7 +65,11 @@ class SessionEngine:
             result = sanitize(
                 text,
                 protect_list=list(self.policy.protect_list),
-                skip_list=[*self.policy.skip_list, *self._alias_literals()],
+                skip_list=[
+                    *DEFAULT_SKIP_TERMS,
+                    *self.policy.skip_list,
+                    *self._alias_literals(),
+                ],
                 shift_calendar=self.policy.shift_calendar,
                 apply_generalize=self.policy.apply_generalize,
                 existing_aliases=dict(self._identity_to_alias),

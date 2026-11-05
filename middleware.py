@@ -72,8 +72,18 @@ def _sanitize_messages(messages, engine):
         if not isinstance(msg, dict):
             raise TypeError("message entry is not a mapping")
         msg = dict(msg)
-        msg["content"], n = _sanitize_content(msg.get("content"), engine)
-        detections += n
+        # System messages are machine-composed (tool lists, platform text):
+        # open-ended NER there aliases tool names and brands into noise. They
+        # get the structured-only policy; conversation messages get the full
+        # one. User PII enters via user/assistant/tool messages, not here.
+        if msg.get("role") == "system":
+            msg["content"], n = _sanitize_content(
+                msg.get("content"), engine, structured_only=True
+            )
+            detections += n
+        else:
+            msg["content"], n = _sanitize_content(msg.get("content"), engine)
+            detections += n
         tool_calls = msg.get("tool_calls")
         if tool_calls is not None:
             msg["tool_calls"], n = _sanitize_tool_calls(tool_calls, engine)
@@ -101,23 +111,26 @@ def _sanitize_input(value, engine):
     raise TypeError("input is neither a string nor a list")
 
 
-def _sanitize_content(content, engine):
+def _sanitize_content(content, engine, structured_only=False):
     """Sanitize string content or a list of content parts."""
     if content is None:
         return content, 0
+    sanitize_fn = (
+        engine.sanitize_structured_only if structured_only else engine.sanitize_request
+    )
     if isinstance(content, str):
-        result = engine.sanitize_request(content)
+        result = sanitize_fn(content)
         return result.sanitized_text, len(result.detections)
     if isinstance(content, list):
         out = []
         detections = 0
         for part in content:
             if isinstance(part, dict) and isinstance(part.get("text"), str):
-                result = engine.sanitize_request(part["text"])
+                result = sanitize_fn(part["text"])
                 part = {**part, "text": result.sanitized_text}
                 detections += len(result.detections)
             elif isinstance(part, str):
-                result = engine.sanitize_request(part)
+                result = sanitize_fn(part)
                 part = result.sanitized_text
                 detections += len(result.detections)
             # Non-text parts (images/attachments) pass through untouched:

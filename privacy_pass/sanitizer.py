@@ -78,6 +78,7 @@ def sanitize(
     date_offset_days: int | None = None,
     existing_aliases: dict[tuple[str, str], str] | None = None,
     counter_seeds: dict[str, int] | None = None,
+    tiers: frozenset[int] | None = None,
 ) -> SanitizeResult:
     """Replace sensitive spans in `text` with stable placeholders.
 
@@ -92,7 +93,9 @@ def sanitize(
     assigned in an enclosing session; matching values reuse that placeholder
     instead of a new one, and `counter_seeds` sets the starting number per
     placeholder word so session-wide placeholders stay unique. Both default
-    to empty, which keeps single-call behavior unchanged.
+    to empty, which keeps single-call behavior unchanged. `tiers` restricts
+    detection to a subset of tiers (e.g. protect list + structured only);
+    None keeps all tiers.
     """
     working = text
     date_shifts: list[dict] = []
@@ -134,6 +137,8 @@ def sanitize(
     candidates = _expand_possessives(working, candidates)
     candidates = _link_person_identities(candidates)
     resolved = _apply_skip_list(_resolve_overlaps(candidates), skip_list or [])
+    if tiers is not None:
+        resolved = [d for d in resolved if d.tier in tiers]
 
     placeholder_for: dict[
         tuple[str, str], str

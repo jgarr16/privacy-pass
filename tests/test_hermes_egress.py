@@ -96,3 +96,28 @@ def test_gate_display_restore_only():
     assert FAKE_NAME in restored
     assert FAKE_SSN in restored
     assert "<SSN" not in restored
+
+
+def test_gate_system_prompt_gets_structured_only_policy():
+    """Machine-composed system text keeps names/brands intact (NER noise)
+    but still loses structured values (SSNs, emails, cards)."""
+    handler = make_llm_request_handler(AdapterState())
+    request = {
+        "model": "m",
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "Tools: GitHub, Linear. Contact Jane Doe if needed. "
+                    f"Test SSN {FAKE_SSN}."
+                ),
+            },
+            {"role": "user", "content": "hi"},
+        ],
+    }
+    out = handler(request=request, session_id="s1")
+    system_text = out["request"]["messages"][0]["content"]
+    assert FAKE_SSN not in system_text  # structured still sanitized
+    assert "<SSN" in system_text
+    assert "Jane Doe" in system_text  # NER noise on system text left alone
+    assert "GitHub" in system_text

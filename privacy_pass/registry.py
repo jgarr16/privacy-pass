@@ -18,9 +18,19 @@ import re
 import threading
 
 from privacy_pass.policy import DEFAULT_POLICY, Policy
-from privacy_pass.sanitizer import SanitizeResult, reveal, sanitize
+from privacy_pass.sanitizer import (
+    TIER_PROTECT_LIST,
+    TIER_STRUCTURED,
+    SanitizeResult,
+    reveal,
+    sanitize,
+)
 
 _ALIAS_RE = re.compile(r"<([A-Za-z]+) (\d+)>")
+
+# Structured-only scope for machine-composed text (system prompts, tool
+# definitions): protect list + structured recognizers, no open-ended NER.
+_STRUCTURED_TIERS = frozenset({TIER_PROTECT_LIST, TIER_STRUCTURED})
 
 
 class SessionEngine:
@@ -35,6 +45,16 @@ class SessionEngine:
 
     def sanitize_request(self, text: str) -> SanitizeResult:
         """Sanitize one provider-bound text with session-stable aliases."""
+        return self._run(text, tiers=None)
+
+    def sanitize_structured_only(self, text: str) -> SanitizeResult:
+        """Protect list + structured types only — for machine-composed text
+        (system prompts) where open-ended NER would alias tool names and
+        brands. User PII enters via conversation messages, which always get
+        the full policy."""
+        return self._run(text, tiers=_STRUCTURED_TIERS)
+
+    def _run(self, text: str, tiers: frozenset[int] | None) -> SanitizeResult:
         with self._lock:
             result = sanitize(
                 text,
@@ -44,6 +64,7 @@ class SessionEngine:
                 apply_generalize=self.policy.apply_generalize,
                 existing_aliases=dict(self._identity_to_alias),
                 counter_seeds=dict(self._counters),
+                tiers=tiers,
             )
             self._identity_to_alias.update(result.alias_assignments)
             for alias, original in result.mapping.items():

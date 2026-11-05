@@ -23,6 +23,7 @@ class AdapterState:
             "requests_blocked": 0,
             "detections": 0,
             "failures": 0,
+            "auxiliary_calls": 0,
         }
 
     def session(self, session_id: str) -> SessionEngine:

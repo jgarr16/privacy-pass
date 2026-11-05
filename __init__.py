@@ -51,6 +51,12 @@ def register(ctx):
     except TypeError:
         ctx.register_hook("transform_llm_output", handler)
 
+    # Observer-only: auxiliary side-calls (titling, compression, ...) have no
+    # rewrite surface in Hermes; we count them so /privacy can say so.
+    ctx.register_hook(
+        "pre_auxiliary_call", hooks.make_pre_auxiliary_handler(state)
+    )
+
     ctx.register_command(
         "privacy",
         commands.make_status_handler(state),

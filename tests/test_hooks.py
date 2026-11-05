@@ -1,7 +1,7 @@
 """``transform_llm_output`` hook contract (verified against installed Hermes
 v0.22.7: payload key ``response_text``, plain-string return)."""
 
-from hooks import make_transform_llm_output_handler
+from hooks import make_pre_auxiliary_handler, make_transform_llm_output_handler
 from privacy_pass.engine import AdapterState
 from privacy_pass.policy import Policy
 
@@ -29,3 +29,17 @@ def test_unknown_alias_passes_through_untouched():
     handler = make_transform_llm_output_handler(state_with_alias())
     out = handler(response_text="Who is <Person 99>?", session_id="s1")
     assert out == "Who is <Person 99>?"
+
+
+def test_auxiliary_calls_counted_metadata_only():
+    state = AdapterState()
+    handler = make_pre_auxiliary_handler(state)
+    assert (
+        handler(
+            aux_task="title_generation",
+            request={"messages": [{"role": "user", "content": "private"}]},
+            session_id="s1",
+        )
+        is None
+    )
+    assert state.stats["auxiliary_calls"] == 1

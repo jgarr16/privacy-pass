@@ -32,3 +32,17 @@ def make_transform_llm_output_handler(state):
         return None
 
     return transform_llm_output
+
+
+def make_pre_auxiliary_handler(state):
+    """``pre_auxiliary_call`` hook: count auxiliary side-calls (titling,
+    compression, vision, approval). Hermes auxiliary calls are observer-only
+    territory — no plugin surface can rewrite or block them, so they bypass
+    sanitization by construction. We count them (metadata only, no content)
+    so /privacy can say so honestly. Returns are ignored by design."""
+
+    def pre_auxiliary_call(**kwargs):
+        state.record(auxiliary_calls=1)
+        return None
+
+    return pre_auxiliary_call

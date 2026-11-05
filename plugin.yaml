@@ -12,6 +12,7 @@ homepage: https://github.com/jgarr16/privacy-pass
 provides_tools: []
 provides_hooks:
   - transform_llm_output
+  - pre_auxiliary_call
 provides_middleware:
   - llm_request
 # Sidecar pattern: presidio-analyzer caps numpy<2.5 while hermes-agent pins

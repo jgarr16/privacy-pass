@@ -1,0 +1,15 @@
+# DRAFT catalog entry — lives in this repo for preparation only.
+# The PR adds this file (with the real sha) to NousResearch/hermes-agent at
+# plugin-catalog/privacy-pass.yaml. Re-verify field names against
+# plugin-catalog/README.md#entry-schema in the target repo before opening
+# the PR; a test fails the build if they drift.
+name: privacy-pass
+repo: https://github.com/jgarr16/privacy-pass
+sha: PIN_FULL_40_CHAR_SHA_AFTER_PUSH
+version: "0.1.0"
+requires_hermes: ">=0.22.0"
+description: >-
+  Local privacy controls for AI conversations: detects private information
+  in outbound model requests, replaces it with stable session-local aliases,
+  restores responses locally for display, and fails closed when the privacy
+  layer cannot verify a request.

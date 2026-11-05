@@ -305,6 +305,35 @@ Work started November 6 in Korea, one day behind the original plan; the calendar
 
 ## 10. Setup — first implementation action
 
+### User install (once the repository is public)
+
+```bash
+hermes plugins install jgarr16/privacy-pass
+hermes plugins enable privacy-pass
+hermes plugins doctor privacy-pass        # must pass; first start bootstraps the sidecar venv (~150 MB, one time)
+```
+
+Configure under `plugins.entries.privacy-pass.settings` in `config.yaml`
+(read at registration; reload the plugin after changing):
+
+```yaml
+plugins:
+  entries:
+    privacy-pass:
+      settings:
+        protect_list:
+          - "Jane Doe"
+          - "CWO3 | Chief Warrant Officer"   # synonyms on one line, | separated
+        skip_list: []
+        mode: personal
+```
+
+Verify: `/privacy` answers with counts (always — a silent plugin means no
+protection), and the offline egress proof in `docs/DEMO.md` reproduces the
+captured-payload check without a provider account. Recommended companion
+setting: `auxiliary.title_generation.enabled: false` (Hermes auxiliary
+calls cannot be sanitized by any plugin — see docs/KNOWN_LIMITS.md).
+
 This is a plan, not a claim that files have been created in the existing local repository. Start by checking the actual installed Hermes version and current Privacy Pass code.
 
 ```bash

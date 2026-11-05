@@ -13,8 +13,29 @@ provides_tools: []
 provides_hooks:
   - transform_llm_output
   - pre_auxiliary_call
+  - pre_tool_call
+  - transform_tool_result
 provides_middleware:
   - llm_request
+  - tool_request
+config_schema:
+  protect_list:
+    type: list
+    default: []
+    description: >-
+      Values that must never reach a provider, matched verbatim (case
+      insensitive). Synonyms on one line separated by |, e.g.
+      "CWO3 | Chief Warrant Officer". Process-local until reload.
+  skip_list:
+    type: list
+    default: []
+    description: Values that detection must never touch (product names, code
+      identifiers that look like PII).
+  mode:
+    type: string
+    default: personal
+    description: personal (default) | work | strict. Policies, not coverage
+      claims; v1 implements personal.
 # Sidecar pattern: presidio-analyzer caps numpy<2.5 while hermes-agent pins
 # numpy==2.5.4, and the spaCy model is a direct-URL requirement. The plugin
 # manages its own venv; the plugin manager installs nothing for it.

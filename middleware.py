@@ -15,6 +15,8 @@ from __future__ import annotations
 import copy
 import json
 
+from privacy_pass.toolpolicy import is_external, sanitize_tool_args
+
 _BLOCK_NOTICE = (
     "[Privacy Pass] This request was blocked before sending: the privacy "
     "layer could not verify and rewrite the outbound content. No message "
@@ -195,3 +197,38 @@ def _blocked_request(request):
     blocked = {k: v for k, v in request.items() if k not in _CONTENT_KEYS}
     blocked["messages"] = [{"role": "system", "content": _BLOCK_NOTICE}]
     return blocked
+
+
+def make_tool_request_handler(state):
+    """``tool_request`` middleware: alias free-text fields on external tools.
+
+    There is no block channel here (Hermes treats a raise as fail-open), so
+    this handler is best-effort by design: rewrite what is safely rewritable
+    (free-text query fields), never touch paths/URLs/commands/IDs, and let
+    the ``pre_tool_call`` guard handle blocking. Failures are counted and
+    the arguments pass through — the model only sees aliased context, so its
+    generated arguments contain aliases in the first place.
+    """
+
+    def on_tool_request(**kwargs):
+        tool_name = str(kwargs.get("tool_name") or "")
+        args = kwargs.get("args")
+        session_id = str(kwargs.get("session_id") or "default")
+        if not isinstance(args, dict):
+            state.record(failures=1)
+            return None
+        try:
+            engine = state.session(session_id)
+            if not is_external(tool_name):
+                return None
+            new_args, detections, changed = sanitize_tool_args(args, engine)
+            if detections:
+                state.record(tool_arg_detections=detections)
+            if changed:
+                return {"args": new_args}
+            return None
+        except Exception:  # counted, never fatal for tool usability
+            state.record(failures=1)
+            return None
+
+    return on_tool_request

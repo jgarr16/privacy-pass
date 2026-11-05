@@ -35,15 +35,42 @@ def register(ctx):
 
     from privacy_pass.engine import AdapterState
     from privacy_pass.policy import Policy
+    from privacy_pass.storage import SessionStore
 
     import commands
     import hooks
     import middleware
 
+    # User configuration (plugins.entries.privacy-pass.settings.*; config
+    # changes take effect after a plugin reload).
+    cfg = {}
+    try:
+        cfg = dict(ctx.get_config() or {})
+    except Exception:
+        cfg = {}
+
+    def _terms(key) -> tuple[str, ...]:
+        value = cfg.get(key)
+        if isinstance(value, str):
+            value = [value]
+        if not isinstance(value, list):
+            return ()
+        return tuple(str(item).strip() for item in value if str(item).strip())
+
+    policy = Policy(
+        protect_list=_terms("protect_list"),
+        skip_list=_terms("skip_list"),
+        mode=str(cfg.get("mode") or "personal"),
+    )
+
     # v1 defaults: dates and generalization stay off (policy, not coverage).
-    state = AdapterState(Policy())
+    store = SessionStore()
+    state = AdapterState(policy, store=store)
 
     ctx.register_middleware("llm_request", middleware.make_llm_request_handler(state))
+    ctx.register_middleware(
+        "tool_request", middleware.make_tool_request_handler(state)
+    )
 
     handler = hooks.make_transform_llm_output_handler(state)
     try:  # hold_stream keeps partial (unrestored) chunks from being shown
@@ -55,6 +82,10 @@ def register(ctx):
     # rewrite surface in Hermes; we count them so /privacy can say so.
     ctx.register_hook(
         "pre_auxiliary_call", hooks.make_pre_auxiliary_handler(state)
+    )
+    ctx.register_hook("pre_tool_call", hooks.make_pre_tool_call_handler(state))
+    ctx.register_hook(
+        "transform_tool_result", hooks.make_transform_tool_result_handler(state)
     )
 
     ctx.register_command(

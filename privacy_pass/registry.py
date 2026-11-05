@@ -42,6 +42,7 @@ class SessionEngine:
         self._identity_to_alias: dict[tuple[str, str], str] = {}
         self._alias_to_original: dict[str, str] = {}
         self._counters: dict[str, int] = {}
+        self._on_change = None
 
     def sanitize_request(self, text: str) -> SanitizeResult:
         """Sanitize one provider-bound text with session-stable aliases."""
@@ -71,7 +72,13 @@ class SessionEngine:
                 self._alias_to_original.setdefault(alias, original)
             self._absorb_counters()
             self._seed_namepart_aliases()
-            return result
+            changed = bool(result.alias_assignments)
+        if changed and self._on_change is not None:
+            try:
+                self._on_change()
+            except Exception:  # persistence must never break sanitization
+                pass
+        return result
 
     def restore_response(self, text: str) -> str:
         """Restore exact known aliases for local display. Never re-sent."""
@@ -81,6 +88,53 @@ class SessionEngine:
     def status(self) -> dict:
         with self._lock:
             return {"aliases": len(self._alias_to_original)}
+
+    # -- persistence (restart continuity) ----------------------------------
+
+    def snapshot(self) -> dict:
+        with self._lock:
+            return {
+                "version": 1,
+                "identity_to_alias": {
+                    f"{etype}|{ident}": alias
+                    for (etype, ident), alias in self._identity_to_alias.items()
+                },
+                "alias_to_original": dict(self._alias_to_original),
+                "counters": dict(self._counters),
+            }
+
+    def load_snapshot(self, snapshot: dict) -> None:
+        with self._lock:
+            if not isinstance(snapshot, dict):
+                return
+            for key, alias in (snapshot.get("identity_to_alias") or {}).items():
+                etype, _, ident = str(key).partition("|")
+                if etype and ident and isinstance(alias, str):
+                    self._identity_to_alias[(etype, ident)] = alias
+            for alias, original in (snapshot.get("alias_to_original") or {}).items():
+                if isinstance(alias, str) and isinstance(original, str):
+                    self._alias_to_original.setdefault(alias, original)
+            for word, number in (snapshot.get("counters") or {}).items():
+                if isinstance(number, int):
+                    self._counters[word] = max(self._counters.get(word, 0), number)
+            self._seed_namepart_aliases()
+
+    def find_raw_protect_terms(self, text: str) -> int:
+        """Count protect-list values appearing verbatim in text. Returns a
+        count only — the values themselves must never be logged or echoed."""
+        if not text:
+            return 0
+        lowered = text.casefold()
+        return sum(
+            1
+            for term in self.policy.protect_list
+            if term.strip() and term.strip().casefold() in lowered
+        )
+
+    def set_on_change(self, callback) -> None:
+        """Register a persistence callback, invoked (without the lock held)
+        after every mutation that changes the mapping."""
+        self._on_change = callback
 
     # -- internals ---------------------------------------------------------
 

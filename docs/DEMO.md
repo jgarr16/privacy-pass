@@ -38,7 +38,10 @@ grep -r "Jane Doe\|212-88-3456" /tmp/demo-captures/ && echo "LEAK — do not rec
 The sandbox `HERMES_HOME` carries a `config.yaml` with a `custom_providers`
 entry pointing at `http://127.0.0.1:8765/v1` (see README §4 findings for the
 exact shape). Restart the gateway after touching plugin files — a running
-gateway keeps old plugin modules in memory.
+gateway keeps old plugin modules in memory. And write `config.yaml` **before**
+`hermes plugins enable` (or re-enable afterwards): the enablement record
+lives in `config.yaml` under `plugins.enabled`, so overwriting the file
+after enabling silently disables the plugin.
 
 ## Talking points
 

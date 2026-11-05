@@ -136,7 +136,9 @@ Verified against installed Hermes v0.22.7 and the working tree:
 - Protect-list entities alias as `<Protected N>`; NER-detected entities as `<Person N>`, `<Company N>`, `<Email N>`, `<SSN N>`, etc. The word "SSN" itself can be NER-aliased as `<Company 1>` (noise, not a leak); refine via a default skip list.
 - Session registry guarantees: aliases stable across turns; sanitization is **idempotent on its own output** (aliases are never re-detected); SSN/card formats sharing digits share one alias; unknown aliases (`<Person 99>`) are never fabricated on restore; restoration is display-only.
 - `hermes plugins doctor` and `hermes plugins validate --install-deps` pass on the current tree. The day-one gate passes at the middleware-contract level (`tests/test_hermes_egress.py` inspects the serialized effective payload); a live capture through a real Hermes session is still to be run.
-- Pending verification: whether Hermes logs full provider payloads by default (document in KNOWN_LIMITS if so); spaCy *model* package license; user-facing protect-list configuration.
+- **`transform_llm_output` contract verified from installed source** (`agent/turn_finalizer.py`): payload keys `response_text, session_id, model, platform, turn_id`; the hook returns a plain replacement string (first non-empty wins). With `hold_stream=True`, a failed callback withholds the reply — display-side failure cannot leak pre-restore text. Hermes persists the *restored* text and replays it next turn; the middleware re-sanitizes that history with the same registry, keeping the round trip alias-stable.
+- **Hermes writes full request-body dumps to local logs on API errors** (`dump_api_request_debug`: preflight, non-retryable client error, max retries). Dumps observe the payload *after* middleware mutation and pass through Hermes' own secret redaction — so they contain aliases, not raw values. Document in KNOWN_LIMITS; no code change needed.
+- Pending verification: spaCy *model* package license; user-facing protect-list configuration.
 
 ## 5. Core engine: reuse existing code
 

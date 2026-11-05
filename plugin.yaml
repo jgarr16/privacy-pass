@@ -1,0 +1,20 @@
+name: privacy-pass
+version: 0.1.0
+description: >-
+  Local privacy controls for AI conversations. Detects private information in
+  outbound model requests, replaces it with stable local aliases, and restores
+  the original values in the response shown to the user. Fails closed: if the
+  privacy layer cannot rewrite a request, the request is blocked rather than
+  sent with unverified content.
+author: jgarr16
+license: MIT
+homepage: https://github.com/jgarr16/privacy-pass
+provides_tools: []
+provides_hooks:
+  - transform_llm_output
+provides_middleware:
+  - llm_request
+# Sidecar pattern: presidio-analyzer caps numpy<2.5 while hermes-agent pins
+# numpy==2.5.4, and the spaCy model is a direct-URL requirement. The plugin
+# manages its own venv; the plugin manager installs nothing for it.
+python_runtime: external
